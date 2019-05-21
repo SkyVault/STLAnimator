@@ -16,7 +16,8 @@ from PyQt5.QtWidgets import (
     QLabel,
     QScrollArea,
     QSlider,
-    QFileDialog)
+    QFileDialog,
+    QColorDialog)
 
 from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtCore import QTimer, Qt
@@ -152,7 +153,6 @@ class App(QWidget):
                 0.05 + (random.random() * 0.08),
                 0.05 + (random.random() * 0.08),
                 1.0)
-            print(model.color)
             self.models[fileName] = model
 
             # model.setKeyFrame(self.frameSlider.value())
@@ -197,6 +197,13 @@ class App(QWidget):
             hide = QPushButton('Hide')
 
             @pyqtSlot()
+            def changeColorDialog():
+                color = QColorDialog.getColor()
+                if color.isValid():
+                    r, g, b, _ = color.getRgb()
+                    model.color = (r, g, b)
+
+            @pyqtSlot()
             def clickedStart():
                 model.setKeyFrame(self.frameSlider.value())
 
@@ -207,6 +214,9 @@ class App(QWidget):
                     hide.setText('Show')
                 else:
                     hide.setText('Hide')
+
+            changeColor = QPushButton("Change Color")
+            changeColor.clicked.connect(changeColorDialog)
 
             start.clicked.connect(clickedStart)
             hide.clicked.connect(clickedHide)
@@ -219,12 +229,12 @@ class App(QWidget):
                 'RY': rotationY,
                 'RZ': rotationZ,
                 'animToggle': start,
-                'State': 'Start',
-            }
+                'State': 'Start'}
 
             flo.addRow("Model: ", QLabel(os.path.basename(fileName)))
             flo.addRow("Translation", translation)
             flo.addRow("Rotation", rotation)
+            flo.addRow("", changeColor)
 
             buttons = QHBoxLayout()
             buttons.addWidget(start)
@@ -409,10 +419,6 @@ class Model():
 
         self.showing = True
 
-        # self.translation = (-9, -4, -30)
-        # self.rotation = (-45.0, 1, 0, 0)
-        # self.scale = (0.2, 0.2, 0.2)
-
         self.translation = (0, 0, 0)
         self.rotation = (0, 0, 0, 0)
         self.scale = (0, 0, 0)
@@ -427,10 +433,7 @@ class Model():
         self.color = (0.6, 0.6, 0.6)
 
     def setKeyFrame(self, currentFrame):
-        self.keyframes.append((
-            currentFrame,
-            self.translation
-        ))
+        self.keyframes.append((currentFrame, self.translation))
 
     def getStart(self):
         frame = self.app.currentFrame
@@ -468,12 +471,11 @@ class Model():
             if length != 0:
                 no = (no[0] / length, no[1] / length, no[2] / length)
 
-            # gl.glNormal3f(no[0], no[1], no[2])
             gl.glNormal3f(*no)
             gl.glColor4f(*self.color, 1)
-            gl.glVertex3f(*p0)
-            gl.glVertex3f(*p1)
-            gl.glVertex3f(*p2)
+
+            for p in [p0, p1, p2]:
+                gl.glVertex3f(*p)
 
         gl.glEnd()
 
