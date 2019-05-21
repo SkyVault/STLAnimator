@@ -466,21 +466,14 @@ class Model():
             length = math.sqrt(no[0]**2 + no[1]**2 + no[2]**2)
 
             if length != 0:
-                no = (
-                    no[0] / length,
-                    no[1] / length,
-                    no[2] / length,
-                )
+                no = (no[0] / length, no[1] / length, no[2] / length)
 
-            gl.glNormal3f(no[0], no[1], no[2])
-            gl.glColor4f(
-                self.color[0],
-                self.color[1],
-                self.color[2],
-                1)
-            gl.glVertex3f(p0[0], p0[1], p0[2])
-            gl.glVertex3f(p1[0], p1[1], p1[2])
-            gl.glVertex3f(p2[0], p2[1], p2[2])
+            # gl.glNormal3f(no[0], no[1], no[2])
+            gl.glNormal3f(*no)
+            gl.glColor4f(*self.color, 1)
+            gl.glVertex3f(*p0)
+            gl.glVertex3f(*p1)
+            gl.glVertex3f(*p2)
 
         gl.glEnd()
 
