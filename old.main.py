@@ -1,7 +1,9 @@
+import numpy
 import sys
 import math
 import os
 import random
+import time
 from PIL import Image
 
 from PyQt5.QtWidgets import (
@@ -18,7 +20,7 @@ from PyQt5.QtWidgets import (
     QSlider,
     QFileDialog)
 
-from PyQt5.QtGui import QDoubleValidator
+from PyQt5.QtGui import QIcon, QDoubleValidator
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtCore import pyqtSlot
 
@@ -27,7 +29,7 @@ from stl import mesh
 from enum import Enum
 
 import OpenGL.GL as gl
-import OpenGL.GLU as glu
+from OpenGL.GLU import *
 
 
 class ProgramStates(Enum):
@@ -240,7 +242,6 @@ class App(QWidget):
     def createModel(self, stl_file):
         pass
 
-
 class GLWidget(QOpenGLWidget):
     def __init__(self, models, models_ui, parent=None):
         super().__init__(parent)
@@ -264,11 +265,12 @@ class GLWidget(QOpenGLWidget):
         if side < 0:
             return
 
-        gl.glViewport((width - side) // 2, (height - side) // 2, side, side)
+        gl.glViewport((width - side) // 2, (height - side) // 2, side,
+                           side)
 
         gl.glMatrixMode(gl.GL_PROJECTION)
         gl.glLoadIdentity()
-        glu.gluPerspective(45, 1.0*self.width/self.height, 0.1, 100.0)
+        gluPerspective(45, 1.0*self.width/self.height, 0.1, 100.0)
         gl.glMatrixMode(gl.GL_MODELVIEW)
 
         self.width = width
@@ -286,25 +288,25 @@ class GLWidget(QOpenGLWidget):
 
         gl.glMatrixMode(gl.GL_PROJECTION)
         gl.glLoadIdentity()
-        glu.gluPerspective(45, 1.0*self.width/self.height, 0.1, 100.0)
+        gluPerspective(45, 1.0*self.width/self.height, 0.1, 100.0)
 
         gl.glMatrixMode(gl.GL_MODELVIEW)
         gl.glLoadIdentity()
 
-        glu.gluLookAt(
-            0.0, -10.0, 10.0,
-            0, 0, 0,
-            0, 1.0, 0)
+        gluLookAt(
+            0.0,-10.0,10.0,
+            0,0,0,
+            0,1.0,0)
 
         # gl.glLoadIdentity()
 
         gl.glColorMaterial(gl.GL_FRONT_AND_BACK, gl.GL_EMISSION)
-        gl.glColorMaterial(gl.GL_FRONT_AND_BACK, gl.GL_AMBIENT_AND_DIFFUSE)
+        gl.glColorMaterial(gl.GL_FRONT_AND_BACK, gl.GL_AMBIENT_AND_DIFFUSE ) ;
         gl.glEnable(gl.GL_COLOR_MATERIAL)
 
         gl.glEnable(gl.GL_LIGHTING)
         gl.glEnable(gl.GL_LIGHT0)
-        # gl.glEnable(gl.GL_BLEND)
+        #gl.glEnable(gl.GL_BLEND)
         gl.glLight(gl.GL_LIGHT0, gl.GL_POSITION,  (1, 1, 1))
         gl.glLight(gl.GL_LIGHT0, gl.GL_AMBIENT, (0.02, 0.02, 0.02))
         gl.glLight(gl.GL_LIGHT0, gl.GL_DIFFUSE, (0.05, 0.05, 0.05))
@@ -315,8 +317,7 @@ class GLWidget(QOpenGLWidget):
                 mod = self.models[modName]
                 ui = self.models_ui[modName]
 
-                if not mod.showing:
-                    continue
+                if not mod.showing: continue
                 try:
                     mod.translation = (
                         float(ui['X'].text()),
@@ -328,11 +329,11 @@ class GLWidget(QOpenGLWidget):
                         float(ui['RY'].text()),
                         float(ui['RZ'].text()),
                     )
-                except ValueError:
+                except:
                     pass
 
                 gl.glPushMatrix()
-                # gl.glLoadIdentity()
+                #gl.glLoadIdentity()
                 gl.glTranslate(*mod.translation)
 
                 gl.glRotatef(mod.rotation[0], 1, 0, 0)
@@ -383,14 +384,10 @@ class GLWidget(QOpenGLWidget):
                 gl.glPopMatrix()
 
             # Capture the frame
-            buff = gl.glReadPixels(
-                    0, 0,
-                    self.width, self.height,
-                    gl.GL_RGB, gl.GL_UNSIGNED_BYTE)
+            buff = gl.glReadPixels(0, 0, self.width, self.height, gl.GL_RGB, gl.GL_UNSIGNED_BYTE)
 
             imgName = f"./tmp_frames/{self.app.currentFrame}.bmp"
-            imout = Image.frombytes(
-                    mode="RGB", size=(self.width, self.height), data=buff)
+            imout = Image.frombytes(mode="RGB", size=(self.width, self.height), data=buff)
             imout = imout.transpose(Image.FLIP_TOP_BOTTOM)
 
             self.app.frameSlider.setValue(self.app.currentFrame)
@@ -400,7 +397,6 @@ class GLWidget(QOpenGLWidget):
             imout.save(imgName)
 
             self.app.currentFrame += 1
-
 
 class Model():
     def __init__(self, stl_model, app):
@@ -453,7 +449,7 @@ class Model():
         if self.app.programState == ProgramStates.POSITIONING:
             self.currentKeyframe = 0
 
-        gl.glShadeModel(gl.GL_SMOOTH)
+        gl.glShadeModel(gl.GL_SMOOTH);
         gl.glBegin(gl.GL_TRIANGLES)
 
         for i in range(0, len(self.stl.v0)):
@@ -465,12 +461,14 @@ class Model():
 
             length = math.sqrt(no[0]**2 + no[1]**2 + no[2]**2)
 
-            if length != 0:
+            try:
                 no = (
                     no[0] / length,
                     no[1] / length,
                     no[2] / length,
                 )
+            except:
+                pass
 
             gl.glNormal3f(no[0], no[1], no[2])
             gl.glColor4f(
@@ -484,6 +482,27 @@ class Model():
 
         gl.glEnd()
 
+testFiles = [
+    # File path, trajectory
+    ('./stl_files/Base_3stn.stl', (1, 1, 1)),
+    ('./stl_files/xbot.stl', (1, 1, 1)),
+    ('./stl_files/z-assm.stl', (1, 1, 1)),
+]
+
+def render_mesh(the_mesh, traj, which):
+    #for frame in range(10):
+
+    # for i in range(3):
+    frame = which
+    fig = pyplot.figure()
+    axes = mplot3d.Axes3D(fig)
+
+    axes.add_collection3d(mplot3d.art3d.Poly3DCollection(the_mesh.vectors))
+
+    scale = the_mesh.points.flatten(-1)
+    axes.auto_scale_xyz(scale, scale, scale)
+
+    pyplot.show()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
