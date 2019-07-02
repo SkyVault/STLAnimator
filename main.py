@@ -2,12 +2,15 @@ import sys
 import math
 import os
 import random
-from PIL import Image
 
+from PyQt5 import QtWidgets
+
+from PIL import Image
 from PyQt5.QtWidgets import (
     QApplication,
     QWidget,
     QOpenGLWidget,
+    QSizePolicy,
     QHBoxLayout,
     QVBoxLayout,
     QPushButton,
@@ -45,10 +48,17 @@ class App(QWidget):
     def __init__(self):
         super().__init__()
         self.title = 'DevWindow'
-        self.left = 10
-        self.top = 10
-        self.width = 940
-        self.height = 480
+
+        screen = QtWidgets.QDesktopWidget().screenGeometry(-1)
+
+        windowscale = 0.8
+        wx = screen.width() * 0.5 - (screen.width() * windowscale) * 0.5
+        wy = screen.height() * 0.5 - (screen.height() * windowscale) * 0.5
+
+        self.left = wx
+        self.top = wy
+        self.width = screen.width() * windowscale
+        self.height = screen.height() * windowscale
         self.initUI()
 
         self.currentFrame = 0
@@ -69,28 +79,39 @@ class App(QWidget):
         self.mainContainerLayout = QVBoxLayout()
         self.mainLayout = QHBoxLayout()
 
-        self.mainLayout.addWidget(self.glWidget)
+        if True:
+            # Side bar
+            self.sidePanel = QVBoxLayout()
+            self.sidePanelWidget = QWidget()
+            self.sidePanelWidget.setLayout(self.sidePanel)
 
-        # Side bar
-        self.sidePanel = QVBoxLayout()
-        self.sidePanelWidget = QWidget()
-        self.sidePanelWidget.setLayout(self.sidePanel)
+            # Load model button
+            self.loadModelBtn = QPushButton('Load STL file')
+            self.loadModelBtn.clicked.connect(self.loadModel)
 
-        # Load model button
-        self.loadModelBtn = QPushButton('Load STL file')
-        self.loadModelBtn.clicked.connect(self.loadModel)
+            self.renderAnimationBtn = QPushButton('Render Animation')
+            self.renderAnimationBtn.clicked.connect(self.renderAnimation)
 
-        self.renderAnimationBtn = QPushButton('Render Animation')
-        self.renderAnimationBtn.clicked.connect(self.renderAnimation)
+            self.sidePanel.addWidget(self.loadModelBtn)
+            self.sidePanel.addWidget(self.renderAnimationBtn)
 
-        self.sidePanel.addWidget(self.loadModelBtn)
-        self.sidePanel.addWidget(self.renderAnimationBtn)
+            self.sidePanelScroll = QScrollArea()
+            self.sidePanelScroll.setWidgetResizable(True)
+            self.sidePanelScroll.setWidget(self.sidePanelWidget)
 
-        self.sidePanelScroll = QScrollArea()
-        self.sidePanelScroll.setWidgetResizable(True)
-        self.sidePanelScroll.setWidget(self.sidePanelWidget)
+        sublayout1 = QHBoxLayout()
+        sublayout2 = QHBoxLayout()
 
-        self.mainLayout.addWidget(self.sidePanelScroll)
+        sublayout1.addWidget(self.glWidget)
+        sublayout2.addWidget(self.sidePanelScroll)
+
+        sublayout1.addStretch(1)
+        sublayout2.addStretch(1)
+
+        self.mainLayout.addLayout(sublayout1, 1)
+        self.mainLayout.addLayout(sublayout2, 2)
+        #self.mainLayout.addWidget(self.glWidget)
+        #self.mainLayout.addWidget(self.sidePanelScroll)
 
         # Construct timeline
         self.timeLineLayout = QHBoxLayout()
@@ -352,6 +373,7 @@ class GLWidget(QOpenGLWidget):
                 gl.glScale(*mod.scale)
 
                 mod.draw()
+
                 gl.glPopMatrix()
 
         elif self.app.programState == ProgramStates.RENDERING:
@@ -456,7 +478,6 @@ class Model():
         if self.app.programState == ProgramStates.POSITIONING:
             self.currentKeyframe = 0
 
-        gl.glShadeModel(gl.GL_SMOOTH)
         gl.glBegin(gl.GL_TRIANGLES)
 
         for i in range(0, len(self.stl.v0)):
