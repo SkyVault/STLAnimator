@@ -2,6 +2,7 @@ import sys
 import math
 import os
 import random
+import numpy as np
 
 from PyQt5 import QtWidgets
 
@@ -33,6 +34,85 @@ import OpenGL.GL as gl
 import OpenGL.GLU as glu
 
 
+def sincos(a):
+    a = math.radians(a)
+    return math.sin(a), math.cos(a)
+
+
+def magnitude(v):
+    return math.sqrt(np.sum(v ** 2))
+
+
+def normalize(v):
+    m = magnitude(v)
+    if m == 0:
+        return v
+    return v / m
+
+
+def rotx(a):
+    s, c = sincos(a)
+    return np.matrix([[1, 0, 0, 0],
+                      [0, c, -s, 0],
+                      [0, s, c, 0],
+                      [0, 0, 0, 1]])
+
+
+def roty(a):
+    s, c = sincos(a)
+    return np.matrix([[c, 0, s, 0],
+                      [0, 1, 0, 0],
+                      [-s, 0, c, 0],
+                      [0, 0, 0, 1]])
+
+
+def rotz(a):
+    s, c = sincos(a)
+    return np.matrix([[c, -s, 0, 0],
+                      [s, c, 0, 0],
+                      [0, 0, 1, 0],
+                      [0, 0, 0, 1]])
+
+
+def translate(xyz):
+    x, y, z = xyz
+    return np.matrix([[1, 0, 0, x],
+                      [0, 1, 0, y],
+                      [0, 0, 1, z],
+                      [0, 0, 0, 1]])
+
+
+def scale(xyz):
+    x, y, z = xyz
+    return np.matrix([[x, 0, 0, 0],
+                      [0, y, 0, 0],
+                      [0, 0, z, 0],
+                      [0, 0, 0, 1]])
+
+
+def rotate(a, xyz):
+    x, y, z = normalize(xyz)
+    s, c = sincos(a)
+    nc = 1 - c
+    return np.matrix([[x*x*nc + c, x*y*nc - z*s, x*z*nc + y*s, 0],
+                      [y*x*nc + z*s, y*y*nc + c, y*z*nc - x*s, 0],
+                      [x*z*nc - y*s, y*z*nc + x*s, z*z*nc + c, 0],
+                      [0, 0, 0, 1]])
+
+
+def lookat(eye, target, up):
+    " View matrix "
+    F = target[:3] - eye[:3]
+    f = normalize(F)
+    U = normalize(up[:3])
+    s = np.cross(f, U)
+    u = np.cross(s, f)
+    M = np.matrix(np.identity(4))
+    M[:3, :3] = np.vstack([s, u, -f])
+    T = translate(-eye)
+    return M * T
+
+
 class ProgramStates(Enum):
     POSITIONING = 1
     RENDERING = 2
@@ -62,6 +142,21 @@ class App(QWidget):
 
         self.currentFrame = 0
         self.numberOfFrames = 100
+
+    def mousePressEvent(self, event):
+        self.glWidget.mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self.glWidget.mouseReleaseEvent(event)
+
+    def keyPressEvent(self, event):
+        self.glWidget.keyPressEvent(event)
+
+    def wheelEvent(self, event):
+        self.glWidget.wheelEvent(event)
+
+    def mouseMoveEvent(self, event):
+        self.glWidget.mouseMoveEvent(event)
 
     def initUI(self):
         self.setWindowTitle(self.title)
@@ -163,8 +258,8 @@ class App(QWidget):
             self.stl_models[fileName] = stl_model
 
             model = Model(stl_model, self)
-            model.translation = (0, 0.0, 0)
-            model.rotation = (0.0, 0, 0)
+            #model.translation = (0, 0, 0)
+            #model.rotation = (0, 0, 0)
             model.scale = (0.01, 0.01, 0.01)
             model.color = (
                 0.05 + (random.random() * 0.08),
@@ -284,9 +379,47 @@ class GLWidget(QOpenGLWidget):
         self.timer = 0
         timer = QTimer(self)
         timer.timeout.connect(self.update)
-        timer.start(1000/10.0)
+        timer.start(1000/60.0)
 
         self.app = parent
+        self.dist = 12
+        self.angle = 0.0
+        self.lastpos = (-1, -1)
+
+    def keyPressEvent(self, event):
+        pass
+
+    def wheelEvent(self, event):
+        if event.angleDelta().y() > 0:
+            self.dist *= 0.9
+        else:
+            self.dist *= 1.1
+
+        if self.dist < 0:
+            self.dist = 0
+
+    def mousePressEvent(self, event):
+        if event.button() == 1:
+            self.lastpos = (event.pos().x(), event.pos().y())
+
+    def mouseReleaseEvent(self, event):
+        pass
+
+    def mouseMoveEvent(self, event):
+        if self.lastpos == (-1, -1):
+            self.lastpos = (event.pos().x(), event.pos().y())
+
+        if event.button() == 0:
+            self.angle += (event.pos().x() - self.lastpos[0]) * 0.01
+            self.lastpos = (event.pos().x(), event.pos().y())
+        """
+            self.pixmapOffset += event.pos() - self.lastDragPos
+            self.lastDragPos = QPoint()
+
+            deltaX = (self.width() - self.pixmap.width()) / 2 - self.pixmapOffset.x()
+            deltaY = (self.height() - self.pixmap.height()) / 2 - self.pixmapOffset.y()
+            self.scroll(deltaX, deltaY)
+        """
 
     def resizeGL(self, width, height):
         side = min(width, height)
@@ -316,17 +449,15 @@ class GLWidget(QOpenGLWidget):
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
         gl.glLoadIdentity()
-        glu.gluPerspective(45, 1.0*self.width/self.height, 0.1, 100.0)
+        glu.gluPerspective(45, 1.0*(self.width/self.height), 0.1, 100.0)
 
         gl.glMatrixMode(gl.GL_MODELVIEW)
         gl.glLoadIdentity()
 
         glu.gluLookAt(
-            0.0, -10.0, 10.0,
+            math.cos(self.angle) * self.dist, self.dist, math.sin(self.angle) * self.dist,
             0, 0, 0,
             0, 1.0, 0)
-
-        # gl.glLoadIdentity()
 
         gl.glColorMaterial(gl.GL_FRONT_AND_BACK, gl.GL_EMISSION)
         gl.glColorMaterial(gl.GL_FRONT_AND_BACK, gl.GL_AMBIENT_AND_DIFFUSE)
@@ -362,13 +493,11 @@ class GLWidget(QOpenGLWidget):
                     pass
 
                 gl.glPushMatrix()
-                # gl.glLoadIdentity()
-                gl.glTranslate(*mod.translation)
 
+                gl.glTranslate(*mod.translation)
                 gl.glRotatef(mod.rotation[0], 1, 0, 0)
                 gl.glRotatef(mod.rotation[1], 0, 1, 0)
                 gl.glRotatef(mod.rotation[2], 0, 0, 1)
-
                 gl.glScale(*mod.scale)
 
                 mod.draw()
@@ -441,7 +570,7 @@ class Model():
         self.showing = True
 
         self.translation = (0, 0, 0)
-        self.rotation = (0, 0, 0, 0)
+        self.rotation = (-90, 0, 0)
         self.scale = (0, 0, 0)
 
         self.start = (0, 0, 0)
