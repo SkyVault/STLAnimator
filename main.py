@@ -10,7 +10,6 @@ from PyQt5.QtWidgets import (
     QApplication,
     QWidget,
     QOpenGLWidget,
-    QSizePolicy,
     QHBoxLayout,
     QVBoxLayout,
     QPushButton,
@@ -74,7 +73,7 @@ class App(QWidget):
         self.setGeometry(self.left, self.top, self.width, self.height)
 
         self.programState = ProgramStates.POSITIONING
-        self.glWidget = GLWidget(self.models, self.models_ui, self)
+        self.glWidget = GLWidget(self.models, self.models_ui, self, (self.width*0.75, self.height))
 
         self.mainContainerLayout = QVBoxLayout()
         self.mainLayout = QHBoxLayout()
@@ -94,22 +93,20 @@ class App(QWidget):
 
             self.sidePanel.addWidget(self.loadModelBtn)
             self.sidePanel.addWidget(self.renderAnimationBtn)
+            self.sidePanel.addStretch(1)
 
             self.sidePanelScroll = QScrollArea()
             self.sidePanelScroll.setWidgetResizable(True)
             self.sidePanelScroll.setWidget(self.sidePanelWidget)
+            self.sidePanelWidget.setFixedWidth(300)
 
         sublayout1 = QHBoxLayout()
         sublayout2 = QHBoxLayout()
-
         sublayout1.addWidget(self.glWidget)
         sublayout2.addWidget(self.sidePanelScroll)
 
-        sublayout1.addStretch(1)
-        sublayout2.addStretch(1)
-
-        self.mainLayout.addLayout(sublayout1, 1)
-        self.mainLayout.addLayout(sublayout2, 2)
+        self.mainLayout.addLayout(sublayout1)
+        self.mainLayout.addLayout(sublayout2)
         #self.mainLayout.addWidget(self.glWidget)
         #self.mainLayout.addWidget(self.sidePanelScroll)
 
@@ -273,9 +270,13 @@ class App(QWidget):
 
 
 class GLWidget(QOpenGLWidget):
-    def __init__(self, models, models_ui, parent=None):
+    def __init__(self, models, models_ui, parent=None, size=(640, 480)):
         super().__init__(parent)
-        self.setFixedSize(640, 480)
+
+        self.width = int(size[0])
+        self.height = int(size[1])
+
+        self.resizeGL(self.width, self.height)
 
         self.models = models
         self.models_ui = models_ui
@@ -284,9 +285,6 @@ class GLWidget(QOpenGLWidget):
         timer = QTimer(self)
         timer.timeout.connect(self.update)
         timer.start(1000/10.0)
-
-        self.width = 640 / 2
-        self.height = 480
 
         self.app = parent
 
@@ -305,6 +303,8 @@ class GLWidget(QOpenGLWidget):
         self.width = width
         self.height = height
 
+        self.setFixedSize(self.width, self.height)
+
     def initializeGL(self):
         gl.glEnable(gl.GL_DEPTH_TEST)
         gl.glEnable(gl.GL_CULL_FACE)
@@ -315,7 +315,6 @@ class GLWidget(QOpenGLWidget):
         gl.glClearColor(0.2, 0.2, 0.2, 1)
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
-        gl.glMatrixMode(gl.GL_PROJECTION)
         gl.glLoadIdentity()
         glu.gluPerspective(45, 1.0*self.width/self.height, 0.1, 100.0)
 
