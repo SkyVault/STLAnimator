@@ -385,11 +385,20 @@ class GLWidget(QOpenGLWidget):
         self.dist = 12
         self.angle = 0.0
         self.lastpos = (-1, -1)
+        self.mouseWithin = False
+
+    def enterEvent(self, event):
+        self.mouseWithin = True
+
+    def leaveEvent(self, event):
+        self.mouseWithin = False
 
     def keyPressEvent(self, event):
         pass
 
     def wheelEvent(self, event):
+        if not self.mouseWithin:
+            return
         if event.angleDelta().y() > 0:
             self.dist *= 0.9
         else:
@@ -399,6 +408,8 @@ class GLWidget(QOpenGLWidget):
             self.dist = 0
 
     def mousePressEvent(self, event):
+        if not self.mouseWithin:
+            return
         if event.button() == 1:
             self.lastpos = (event.pos().x(), event.pos().y())
 
@@ -406,20 +417,14 @@ class GLWidget(QOpenGLWidget):
         pass
 
     def mouseMoveEvent(self, event):
+        if not self.mouseWithin:
+            return
         if self.lastpos == (-1, -1):
             self.lastpos = (event.pos().x(), event.pos().y())
 
         if event.button() == 0:
             self.angle += (event.pos().x() - self.lastpos[0]) * 0.01
             self.lastpos = (event.pos().x(), event.pos().y())
-        """
-            self.pixmapOffset += event.pos() - self.lastDragPos
-            self.lastDragPos = QPoint()
-
-            deltaX = (self.width() - self.pixmap.width()) / 2 - self.pixmapOffset.x()
-            deltaY = (self.height() - self.pixmap.height()) / 2 - self.pixmapOffset.y()
-            self.scroll(deltaX, deltaY)
-        """
 
     def resizeGL(self, width, height):
         side = min(width, height)
@@ -606,7 +611,7 @@ class Model():
         if self.app.programState == ProgramStates.POSITIONING:
             self.currentKeyframe = 0
 
-        gl.glBegin(gl.GL_TRIANGLES)
+        gl.glBegin(gl.GL_LINE_STRIP)
 
         for i in range(0, len(self.stl.v0)):
             p0 = self.stl.v0[i]
