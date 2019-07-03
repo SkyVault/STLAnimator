@@ -3,6 +3,10 @@ import math
 import os
 import random
 import numpy as np
+import trimesh
+import pyrender
+import matplotlib.pyplot as plt
+import time
 
 from PyQt5 import QtWidgets
 
@@ -252,14 +256,13 @@ class App(QWidget):
             print(f"Loading STL model: {fileName}")
 
             stl_model = mesh.Mesh.from_file(fileName)
+            # stl_model = trimesh.load(fileName)
 
             fileName = fileName + str(len(self.models))
 
             self.stl_models[fileName] = stl_model
 
             model = Model(stl_model, self)
-            #model.translation = (0, 0, 0)
-            #model.rotation = (0, 0, 0)
             model.scale = (0.01, 0.01, 0.01)
             model.color = (
                 0.05 + (random.random() * 0.08),
@@ -387,6 +390,39 @@ class GLWidget(QOpenGLWidget):
         self.lastpos = (-1, -1)
         self.mouseWithin = False
 
+        test = trimesh.load('stl_files/z-assm.stl')
+
+        mesh = pyrender.Mesh.from_trimesh(test)
+        scene = pyrender.Scene()
+
+        modelView = translate((0, 0, 0))
+        modelView = modelView * scale((0.0005, 0.0005, 0.0005))
+
+        scene.add(mesh, pose=np.array(modelView))
+
+        camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0, aspectRatio=1.0)
+        s = np.sqrt(2)/2
+
+        camera_pose = np.array([
+           [0.0, -s,   s,   0.3],
+           [1.0,  0.0, 0.0, 0.0],
+           [0.0,  s,   s,   0.35],
+           [0.0,  0.0, 0.0, 1.0],
+        ])
+
+        scene.add(camera, pose=camera_pose)
+        light = pyrender.SpotLight(color=np.ones(3), intensity=3.0, innerConeAngle=np.pi/16.0, outerConeAngle=np.pi/6.0)
+        scene.add(light, pose=camera_pose)
+
+        r = pyrender.OffscreenRenderer(self.width, self.height)
+
+        start = time.time()
+        color, depth = r.render(scene)
+        print((time.time() - start) * 1000.0)
+
+        self.testImg = color
+        self.testImg = np.flipud(self.testImg)
+
     def enterEvent(self, event):
         self.mouseWithin = True
 
@@ -508,6 +544,8 @@ class GLWidget(QOpenGLWidget):
                 mod.draw()
 
                 gl.glPopMatrix()
+
+            gl.glDrawPixels(self.width, self.height, gl.GL_RGB, gl.GL_UNSIGNED_BYTE, self.testImg)
 
         elif self.app.programState == ProgramStates.RENDERING:
             if self.app.currentFrame >= self.app.numberOfFrames:
