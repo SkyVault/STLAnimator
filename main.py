@@ -117,6 +117,27 @@ def lookat(eye, target, up):
     return M * T
 
 
+def perspective(fovy, aspect, n, f):
+    s = 1.0/math.tan(math.radians(fovy)/2.0)
+    sx, sy = s / aspect, s
+    zz = (f+n)/(n-f)
+    zw = 2*f*n/(n-f)
+    return np.matrix([[sx, 0, 0, 0],
+                      [0, sy, 0, 0],
+                      [0, 0, zz, zw],
+                      [0, 0, -1, 0]])
+
+
+def defaultCameraPose():
+    s = np.sqrt(2)/2
+    return np.array([
+        [0.0, -s,   s,   0.3],
+        [1.0,  0.0, 0.0, 0.0],
+        [0.0,  s,   s,   0.35],
+        [0.0,  0.0, 0.0, 1.0],
+    ])
+
+
 class ProgramStates(Enum):
     POSITIONING = 1
     RENDERING = 2
@@ -167,7 +188,7 @@ class App(QWidget):
 
         self.models = {}
         self.models_ui = {}
-        self.stl_models = {}
+        self.meshes = {}
 
         self.setGeometry(self.left, self.top, self.width, self.height)
 
@@ -255,21 +276,25 @@ class App(QWidget):
         if fileName:
             print(f"Loading STL model: {fileName}")
 
-            stl_model = mesh.Mesh.from_file(fileName)
-            # stl_model = trimesh.load(fileName)
+            tmesh = trimesh.load(fileName)
+            mesh = pyrender.Mesh.from_trimesh(tmesh)
+            node = pyrender.Node(mesh=mesh, matrix=np.eye(4))
 
             fileName = fileName + str(len(self.models))
 
-            self.stl_models[fileName] = stl_model
+            self.meshes[fileName] = mesh
 
-            model = Model(stl_model, self)
-            model.scale = (0.01, 0.01, 0.01)
+            model = Model(mesh, node, self)
+            model.scale = (0.0005, 0.0005, 0.0005)
             model.color = (
                 0.05 + (random.random() * 0.08),
                 0.05 + (random.random() * 0.08),
                 0.05 + (random.random() * 0.08),
                 1.0)
             self.models[fileName] = model
+
+            # Add mesh to the scene
+            self.glWidget.scene.add_node(node)
 
             # model.setKeyFrame(self.frameSlider.value())
 
@@ -390,17 +415,9 @@ class GLWidget(QOpenGLWidget):
         self.lastpos = (-1, -1)
         self.mouseWithin = False
 
-        test = trimesh.load('stl_files/z-assm.stl')
+        self.scene = pyrender.Scene()
 
-        mesh = pyrender.Mesh.from_trimesh(test)
-        scene = pyrender.Scene()
-
-        modelView = translate((0, 0, 0))
-        modelView = modelView * scale((0.0005, 0.0005, 0.0005))
-
-        scene.add(mesh, pose=np.array(modelView))
-
-        camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0, aspectRatio=1.0)
+        self.camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0, aspectRatio=1.0)
         s = np.sqrt(2)/2
 
         camera_pose = np.array([
@@ -410,18 +427,18 @@ class GLWidget(QOpenGLWidget):
            [0.0,  0.0, 0.0, 1.0],
         ])
 
-        scene.add(camera, pose=camera_pose)
-        light = pyrender.SpotLight(color=np.ones(3), intensity=3.0, innerConeAngle=np.pi/16.0, outerConeAngle=np.pi/6.0)
-        scene.add(light, pose=camera_pose)
+        self.scene.add(self.camera, pose=camera_pose)
 
-        r = pyrender.OffscreenRenderer(self.width, self.height)
+        self.mainLight = pyrender.SpotLight(
+            color=np.ones(3),
+            intensity=3.0,
+            innerConeAngle=np.pi/16.0,
+            outerConeAngle=np.pi/6.0)
 
-        start = time.time()
-        color, depth = r.render(scene)
-        print((time.time() - start) * 1000.0)
+        self.scene.add(self.mainLight, pose=camera_pose)
 
-        self.testImg = color
-        self.testImg = np.flipud(self.testImg)
+        self.offscreenRenderer = pyrender.OffscreenRenderer(self.width, self.height)
+        self.color, depth = self.offscreenRenderer.render(self.scene)
 
     def enterEvent(self, event):
         self.mouseWithin = True
@@ -500,6 +517,20 @@ class GLWidget(QOpenGLWidget):
             0, 0, 0,
             0, 1.0, 0)
 
+        for camera_node in self.scene.camera_nodes:
+
+            #trans = lookat(np.array([
+            #    math.cos(self.angle) * self.dist * 0.001,
+            #    self.dist * 0.001,
+            #    math.sin(self.angle) * self.dist * 0.001]),
+            #    np.array([0, 0, 0]),
+            #    np.array([0, 1.0, 0]))
+            crot = math.cos(self.angle) * self.dist * 0.0001
+            srot = math.sin(self.angle) * self.dist * 0.0001
+
+            mat = defaultCameraPose()
+            self.scene.set_pose(camera_node, np.array(mat))
+
         gl.glColorMaterial(gl.GL_FRONT_AND_BACK, gl.GL_EMISSION)
         gl.glColorMaterial(gl.GL_FRONT_AND_BACK, gl.GL_AMBIENT_AND_DIFFUSE)
         gl.glEnable(gl.GL_COLOR_MATERIAL)
@@ -533,19 +564,26 @@ class GLWidget(QOpenGLWidget):
                 except ValueError:
                     pass
 
-                gl.glPushMatrix()
+                # Update the models position
+                modelView = translate(mod.translation)
+                modelView = modelView * rotx(mod.rotation[0])
+                modelView = modelView * roty(mod.rotation[1])
+                modelView = modelView * rotz(mod.rotation[2])
+                modelView = modelView * scale(mod.scale)
 
-                gl.glTranslate(*mod.translation)
-                gl.glRotatef(mod.rotation[0], 1, 0, 0)
-                gl.glRotatef(mod.rotation[1], 0, 1, 0)
-                gl.glRotatef(mod.rotation[2], 0, 0, 1)
-                gl.glScale(*mod.scale)
+                self.scene.set_pose(mod.node, pose=np.array(modelView))
 
-                mod.draw()
+            # self.offscreenRenderer = pyrender.OffscreenRenderer(self.width, self.height)
+            start = time.time()
 
-                gl.glPopMatrix()
+            gl.glDrawPixels(
+                self.width,
+                self.height,
+                gl.GL_RGB,
+                gl.GL_UNSIGNED_BYTE,
+                np.flipud(self.color))
 
-            gl.glDrawPixels(self.width, self.height, gl.GL_RGB, gl.GL_UNSIGNED_BYTE, self.testImg)
+            self.color, depth = self.offscreenRenderer.render(self.scene)
 
         elif self.app.programState == ProgramStates.RENDERING:
             if self.app.currentFrame >= self.app.numberOfFrames:
@@ -606,14 +644,15 @@ class GLWidget(QOpenGLWidget):
 
 
 class Model():
-    def __init__(self, stl_model, app):
-        self.stl = stl_model
+    def __init__(self, mesh, node, app):
+        self.mesh = mesh
+        self.node = node
         self.app = app
 
         self.showing = True
 
         self.translation = (0, 0, 0)
-        self.rotation = (-90, 0, 0)
+        self.rotation = (0, 0, 0)
         self.scale = (0, 0, 0)
 
         self.start = (0, 0, 0)
@@ -644,32 +683,6 @@ class Model():
         if self.currentKeyframe + 1 >= len(self.keyframes):
             return self.keyframes[self.currentKeyframe]
         return self.keyframes[self.currentKeyframe + 1]
-
-    def draw(self):
-        if self.app.programState == ProgramStates.POSITIONING:
-            self.currentKeyframe = 0
-
-        gl.glBegin(gl.GL_LINE_STRIP)
-
-        for i in range(0, len(self.stl.v0)):
-            p0 = self.stl.v0[i]
-            p1 = self.stl.v1[i]
-            p2 = self.stl.v2[i]
-
-            no = self.stl.normals[i]
-
-            length = math.sqrt(no[0]**2 + no[1]**2 + no[2]**2)
-
-            if length != 0:
-                no = (no[0] / length, no[1] / length, no[2] / length)
-
-            gl.glNormal3f(*no)
-            gl.glColor4f(*self.color, 1)
-
-            for p in [p0, p1, p2]:
-                gl.glVertex3f(*p)
-
-        gl.glEnd()
 
 
 if __name__ == '__main__':
