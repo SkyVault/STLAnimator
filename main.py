@@ -277,20 +277,22 @@ class App(QWidget):
             print(f"Loading STL model: {fileName}")
 
             tmesh = trimesh.load(fileName)
+            color = (
+                0.05 + (random.random() * 0.08),
+                0.05 + (random.random() * 0.08),
+                0.05 + (random.random() * 0.08),
+                1.0)
+            tmesh.visual.vertex_colors = [color for i in range(0, tmesh.vertices.shape[0])]
             mesh = pyrender.Mesh.from_trimesh(tmesh)
+            # mesh = mesh.from_trimesh(tmesh)
             node = pyrender.Node(mesh=mesh, matrix=np.eye(4))
 
             fileName = fileName + str(len(self.models))
 
             self.meshes[fileName] = mesh
 
-            model = Model(mesh, node, self)
+            model = Model(tmesh, mesh, node, self)
             model.scale = (0.0005, 0.0005, 0.0005)
-            model.color = (
-                0.05 + (random.random() * 0.08),
-                0.05 + (random.random() * 0.08),
-                0.05 + (random.random() * 0.08),
-                1.0)
             self.models[fileName] = model
 
             # Add mesh to the scene
@@ -548,7 +550,7 @@ class GLWidget(QOpenGLWidget):
                 mod = self.models[modName]
                 ui = self.models_ui[modName]
 
-                if not mod.showing:
+                if not mod.showing or mod.node is None:
                     continue
                 try:
                     mod.translation = (
@@ -644,10 +646,12 @@ class GLWidget(QOpenGLWidget):
 
 
 class Model():
-    def __init__(self, mesh, node, app):
+    def __init__(self, tmesh, mesh, node, app):
+        self.tmesh = tmesh
         self.mesh = mesh
         self.node = node
         self.app = app
+        self.scene = app.glWidget.scene
 
         self.showing = True
 
@@ -662,7 +666,20 @@ class Model():
 
         self.keyframes = []
 
-        self.color = (0.6, 0.6, 0.6)
+    @property
+    def color(self):
+        return tuple(self.tmesh.visual.vertex_colors[0])
+
+    @color.setter
+    def color(self, new_val):
+        self.tmesh.visual.vertex_colors = [new_val for i in range(0, self.tmesh.vertices.shape[0])]
+        self.mesh = pyrender.Mesh.from_trimesh(self.tmesh)
+
+        # Re add itself to the scene I guess...
+        self.scene.remove_node(self.node)
+        self.node = None
+        self.node = pyrender.Node(mesh=self.mesh, matrix=np.eye(4))
+        self.scene.add_node(self.node)
 
     def setKeyFrame(self, currentFrame):
         self.keyframes.append((currentFrame, self.translation))
