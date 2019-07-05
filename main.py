@@ -231,6 +231,14 @@ class App(QWidget):
                 self.animationSettingsWidget = QWidget()
                 self.animationSettingsWidget.setLayout(self.animationSettingsPanel)
 
+                # Create animation settings form
+                form = QFormLayout()
+                form.addRow("Background Color", QPushButton("Change"))
+                # TODO(Dustin): Validate
+                form.addRow("Framerate", QLineEdit())
+                self.animationSettingsPanel.addLayout(form)
+
+
             self.sidePanelTabs.setFixedWidth(300)
             self.sidePanelTabs.addTab(self.sidePanelScroll, "Objects")
             self.sidePanelTabs.addTab(self.animationSettingsWidget, "Animation")
@@ -294,6 +302,12 @@ class App(QWidget):
             print(f"Loading STL model: {fileName}")
 
             tmesh = trimesh.load(fileName)
+
+            # Fix normals
+            trimesh.repair.fix_winding(tmesh)
+            trimesh.repair.fix_normals(tmesh)
+            trimesh.repair.fill_holes(tmesh)
+
             mesh = pyrender.Mesh.from_trimesh(tmesh)
             node = pyrender.Node(mesh=mesh, matrix=np.eye(4))
 
