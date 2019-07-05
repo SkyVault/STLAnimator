@@ -277,26 +277,25 @@ class App(QWidget):
             print(f"Loading STL model: {fileName}")
 
             tmesh = trimesh.load(fileName)
-            color = (
-                0.5 + (random.random() * 0.08),
-                0.5 + (random.random() * 0.08),
-                0.5 + (random.random() * 0.08),
-                1.0)
-            tmesh.visual.vertex_colors = [color for i in range(0, tmesh.vertices.shape[0])]
             mesh = pyrender.Mesh.from_trimesh(tmesh)
-            # mesh = mesh.from_trimesh(tmesh)
             node = pyrender.Node(mesh=mesh, matrix=np.eye(4))
 
             fileName = fileName + str(len(self.models))
 
             self.meshes[fileName] = mesh
 
-            model = Model(tmesh, mesh, node, self)
-            model.scale = (0.001, 0.001, 0.001)
-            self.models[fileName] = model
-
             # Add mesh to the scene
             self.glWidget.scene.add_node(node)
+
+            model = Model(tmesh, mesh, node, self)
+
+            model.scale = (0.001, 0.001, 0.001)
+            model.color = (
+                0.5 + (random.random() * 0.08),
+                0.5 + (random.random() * 0.08),
+                0.5 + (random.random() * 0.08),
+                1.0)
+            self.models[fileName] = model
 
             # model.setKeyFrame(self.frameSlider.value())
 
@@ -417,27 +416,36 @@ class GLWidget(QOpenGLWidget):
         self.lastpos = (-1, -1)
         self.mouseWithin = False
 
-        self.scene = pyrender.Scene()
+        self.scene = pyrender.Scene(
+            bg_color=[0.2, 0.2, 0.2, 1]
+        )
 
         self.camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0, aspectRatio=1.0)
         s = np.sqrt(2)/2
 
         camera_pose = np.array([
-           [0.0, -s,   s,   0.3],
+           [0.0, -s,   s,   1.3],
            [1.0,  0.0, 0.0, 0.0],
-           [0.0,  s,   s,   0.35],
+           [0.0,  s,   s,   1.35],
            [0.0,  0.0, 0.0, 1.0],
         ])
 
         self.scene.add(self.camera, pose=camera_pose)
 
-        self.mainLight = pyrender.SpotLight(
+        self.side_light_1 = pyrender.PointLight(
             color=np.ones(3),
-            intensity=3.0,
-            innerConeAngle=np.pi/16.0,
-            outerConeAngle=np.pi/6.0)
+            intensity=22,
+            name="side-light-1",
+            range=100)
 
-        self.scene.add(self.mainLight, pose=camera_pose)
+        self.side_light_2 = pyrender.PointLight(
+            color=np.ones(3),
+            intensity=22,
+            name="side-light-2",
+            range=100)
+
+        self.scene.add(self.side_light_1, pose=np.array(translate((2,1,1))))
+        self.scene.add(self.side_light_2, pose=np.array(translate((-1,1,-2))))
 
         self.offscreenRenderer = pyrender.OffscreenRenderer(self.width, self.height)
         self.color, depth = self.offscreenRenderer.render(self.scene)
@@ -519,12 +527,17 @@ class GLWidget(QOpenGLWidget):
             0, 0, 0,
             0, 1.0, 0)
 
+        camera_position = (0, 0, 0)
         for camera_node in self.scene.camera_nodes:
-
-            mat = lookat(np.array([
+            camera_position = (
                 math.cos(self.angle) * self.dist * 0.1,
                 self.dist * 0.1,
-                math.sin(self.angle) * self.dist * 0.1]),
+                math.sin(self.angle) * self.dist * 0.1)
+
+            mat = lookat(np.array([
+                camera_position[0],
+                camera_position[1],
+                camera_position[2]]),
                 np.array([0, 0, 0]),
                 np.array([0, 1.0, 0]))
 
