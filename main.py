@@ -278,9 +278,9 @@ class App(QWidget):
 
             tmesh = trimesh.load(fileName)
             color = (
-                0.05 + (random.random() * 0.08),
-                0.05 + (random.random() * 0.08),
-                0.05 + (random.random() * 0.08),
+                0.5 + (random.random() * 0.08),
+                0.5 + (random.random() * 0.08),
+                0.5 + (random.random() * 0.08),
                 1.0)
             tmesh.visual.vertex_colors = [color for i in range(0, tmesh.vertices.shape[0])]
             mesh = pyrender.Mesh.from_trimesh(tmesh)
@@ -292,7 +292,7 @@ class App(QWidget):
             self.meshes[fileName] = mesh
 
             model = Model(tmesh, mesh, node, self)
-            model.scale = (0.0005, 0.0005, 0.0005)
+            model.scale = (0.001, 0.001, 0.001)
             self.models[fileName] = model
 
             # Add mesh to the scene
@@ -521,17 +521,14 @@ class GLWidget(QOpenGLWidget):
 
         for camera_node in self.scene.camera_nodes:
 
-            #trans = lookat(np.array([
-            #    math.cos(self.angle) * self.dist * 0.001,
-            #    self.dist * 0.001,
-            #    math.sin(self.angle) * self.dist * 0.001]),
-            #    np.array([0, 0, 0]),
-            #    np.array([0, 1.0, 0]))
-            crot = math.cos(self.angle) * self.dist * 0.0001
-            srot = math.sin(self.angle) * self.dist * 0.0001
+            mat = lookat(np.array([
+                math.cos(self.angle) * self.dist * 0.1,
+                self.dist * 0.1,
+                math.sin(self.angle) * self.dist * 0.1]),
+                np.array([0, 0, 0]),
+                np.array([0, 1.0, 0]))
 
-            mat = defaultCameraPose()
-            self.scene.set_pose(camera_node, np.array(mat))
+            self.scene.set_pose(camera_node, np.array(np.linalg.inv(mat)))
 
         gl.glColorMaterial(gl.GL_FRONT_AND_BACK, gl.GL_EMISSION)
         gl.glColorMaterial(gl.GL_FRONT_AND_BACK, gl.GL_AMBIENT_AND_DIFFUSE)
@@ -567,15 +564,19 @@ class GLWidget(QOpenGLWidget):
                     pass
 
                 # Update the models position
-                modelView = translate(mod.translation)
-                modelView = modelView * rotx(mod.rotation[0])
+                trans = (
+                    mod.translation[0] / 100.0,
+                    mod.translation[1] / 100.0,
+                    mod.translation[2] / 100.0)
+
+                modelView = translate(trans)
+                modelView = modelView * rotx(mod.rotation[0] + 90.0)
                 modelView = modelView * roty(mod.rotation[1])
-                modelView = modelView * rotz(mod.rotation[2])
+                modelView = modelView * rotz(mod.rotation[2] + 180)
                 modelView = modelView * scale(mod.scale)
 
                 self.scene.set_pose(mod.node, pose=np.array(modelView))
 
-            # self.offscreenRenderer = pyrender.OffscreenRenderer(self.width, self.height)
             start = time.time()
 
             gl.glDrawPixels(
