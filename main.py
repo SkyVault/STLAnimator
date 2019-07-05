@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
     QApplication,
     QWidget,
     QOpenGLWidget,
+    QTabWidget,
     QHBoxLayout,
     QVBoxLayout,
     QPushButton,
@@ -199,31 +200,47 @@ class App(QWidget):
         self.mainLayout = QHBoxLayout()
 
         if True:
-            # Side bar
-            self.sidePanel = QVBoxLayout()
-            self.sidePanelWidget = QWidget()
-            self.sidePanelWidget.setLayout(self.sidePanel)
+            self.sidePanelTabs = QTabWidget()
 
-            # Load model button
-            self.loadModelBtn = QPushButton('Load STL file')
-            self.loadModelBtn.clicked.connect(self.loadModel)
+            # Objects Panel
+            if True:
+                # Side bar
+                self.sidePanel = QVBoxLayout()
+                self.sidePanelWidget = QWidget()
+                self.sidePanelWidget.setLayout(self.sidePanel)
 
-            self.renderAnimationBtn = QPushButton('Render Animation')
-            self.renderAnimationBtn.clicked.connect(self.renderAnimation)
+                # Load model button
+                self.loadModelBtn = QPushButton('Load STL file')
+                self.loadModelBtn.clicked.connect(self.loadModel)
 
-            self.sidePanel.addWidget(self.loadModelBtn)
-            self.sidePanel.addWidget(self.renderAnimationBtn)
-            self.sidePanel.addStretch(1)
+                self.renderAnimationBtn = QPushButton('Render Animation')
+                self.renderAnimationBtn.clicked.connect(self.renderAnimation)
 
-            self.sidePanelScroll = QScrollArea()
-            self.sidePanelScroll.setWidgetResizable(True)
-            self.sidePanelScroll.setWidget(self.sidePanelWidget)
-            self.sidePanelWidget.setFixedWidth(300)
+                self.sidePanel.addWidget(self.loadModelBtn)
+                self.sidePanel.addWidget(self.renderAnimationBtn)
+                self.sidePanel.addStretch(1)
+
+                self.sidePanelScroll = QScrollArea()
+                self.sidePanelScroll.setWidgetResizable(True)
+                self.sidePanelScroll.setWidget(self.sidePanelWidget)
+                #self.sidePanelWidget.setFixedWidth(300)
+
+            # Animation Settings Panel
+            if True:
+                self.animationSettingsPanel = QVBoxLayout()
+                self.animationSettingsWidget = QWidget()
+                self.animationSettingsWidget.setLayout(self.animationSettingsPanel)
+
+            self.sidePanelTabs.setFixedWidth(300)
+            self.sidePanelTabs.addTab(self.sidePanelScroll, "Objects")
+            self.sidePanelTabs.addTab(self.animationSettingsWidget, "Animation")
+
 
         sublayout1 = QHBoxLayout()
         sublayout2 = QHBoxLayout()
         sublayout1.addWidget(self.glWidget)
-        sublayout2.addWidget(self.sidePanelScroll)
+        #sublayout2.addWidget(self.sidePanelScroll)
+        sublayout2.addWidget(self.sidePanelTabs)
 
         self.mainLayout.addLayout(sublayout1)
         self.mainLayout.addLayout(sublayout2)
