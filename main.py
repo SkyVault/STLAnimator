@@ -233,7 +233,24 @@ class App(QWidget):
 
                 # Create animation settings form
                 form = QFormLayout()
-                form.addRow("Background Color", QPushButton("Change"))
+
+                # TODO(Dustin): Make work, not important though
+                def currentColorChanged(color):
+                    r, g, b, _ = color.getRgb()
+                    self.glWidget.scene.bg_color = (r, g, b)
+
+                def changeBgEvent():
+                    dialog = QColorDialog()
+                    dialog.currentColorChanged.connect(currentColorChanged)
+                    color = dialog.getColor()
+                    if color.isValid():
+                        r, g, b, _ = color.getRgb()
+                        self.glWidget.scene.bg_color = (r, g, b)
+
+                changeBg = QPushButton("Change")
+                changeBg.clicked.connect(changeBgEvent)
+
+                form.addRow("Background Color", changeBg)
                 # TODO(Dustin): Validate
                 form.addRow("Framerate", QLineEdit())
                 self.animationSettingsPanel.addLayout(form)
