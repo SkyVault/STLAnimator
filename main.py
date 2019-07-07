@@ -32,8 +32,8 @@ from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtCore import pyqtSlot
 
 from stl import mesh
-
 from enum import Enum
+from qtimeline import *
 
 import OpenGL.GL as gl
 import OpenGL.GLU as glu
@@ -158,12 +158,12 @@ class App(QWidget):
 
         windowscale = 0.8
         wx = screen.width() * 0.5 - (screen.width() * windowscale) * 0.5
-        wy = screen.height() * 0.5 - (screen.height() * windowscale) * 0.5
+        wy = screen.height() * 0.5 - ((screen.height() - 80) * windowscale) * 0.5
 
         self.left = wx
         self.top = wy
         self.width = screen.width() * windowscale
-        self.height = screen.height() * windowscale
+        self.height = (screen.height() - 80) * windowscale
         self.initUI()
 
         self.currentFrame = 0
@@ -260,7 +260,6 @@ class App(QWidget):
             self.sidePanelTabs.addTab(self.sidePanelScroll, "Objects")
             self.sidePanelTabs.addTab(self.animationSettingsWidget, "Animation")
 
-
         sublayout1 = QHBoxLayout()
         sublayout2 = QHBoxLayout()
         sublayout1.addWidget(self.glWidget)
@@ -275,17 +274,12 @@ class App(QWidget):
         # Construct timeline
         self.timeLineLayout = QHBoxLayout()
 
-        self.frameSlider = QSlider(Qt.Horizontal)
-        self.frameSlider.setFocusPolicy(Qt.StrongFocus)
-        self.frameSlider.setTickPosition(QSlider.TicksAbove)
-        self.frameSlider.setTickInterval(1)
-        self.frameSlider.setSingleStep(1)
-        self.frameSlider.valueChanged.connect(self.frameChanged)
-
-        self.currentFrameLabel = QLabel("Frame 0")
+        self.frameSlider = QTimeLine(3*60, 200)
+        self.frameSlider.videoSamples.append(VideoSample(1))
+        #self.currentFrameLabel = QLabel("")
 
         self.timeLineLayout.addWidget(self.frameSlider)
-        self.timeLineLayout.addWidget(self.currentFrameLabel)
+        #self.timeLineLayout.addWidget(self.currentFrameLabel)
 
         self.mainContainerLayout.addLayout(self.mainLayout)
         self.mainContainerLayout.addLayout(self.timeLineLayout)
@@ -296,7 +290,8 @@ class App(QWidget):
 
     @pyqtSlot()
     def frameChanged(self):
-        self.currentFrameLabel.setText(f"Frame {self.frameSlider.value()}")
+        pass
+        #self.currentFrameLabel.setText(f"Frame {self.frameSlider.value()}")
 
     @pyqtSlot()
     def renderAnimation(self):
