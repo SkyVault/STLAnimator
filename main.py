@@ -158,7 +158,7 @@ class App(QWidget):
 
         windowscale = 0.8
         wx = screen.width() * 0.5 - (screen.width() * windowscale) * 0.5
-        wy = screen.height() * 0.5 - ((screen.height() - 80) * windowscale) * 0.5
+        wy = screen.height() * 0.5 - (screen.height() * windowscale) * 0.5
 
         self.left = wx
         self.top = wy
@@ -272,14 +272,36 @@ class App(QWidget):
         #self.mainLayout.addWidget(self.sidePanelScroll)
 
         # Construct timeline
-        self.timeLineLayout = QHBoxLayout()
+        self.timeLineLayout = QVBoxLayout()
 
-        self.frameSlider = QTimeLine(3*60, 200)
-        self.frameSlider.videoSamples.append(VideoSample(1))
-        #self.currentFrameLabel = QLabel("")
+        self.frameSlider = QTimeLine(3*60, 400)
 
+        self.currentFrameLayout = QHBoxLayout()
+
+        self.currentFrameLabel = QLabel("Frame: ")
+
+        self.currentFrameEdit = QLineEdit()
+        self.currentFrameEdit.setText(str(0))
+        self.currentFrameEdit.setValidator(QDoubleValidator(0, 400, 1))
+        self.currentFrameEdit.setFixedWidth(100)
+        self.currentFrameEdit.setDragEnabled(True)
+
+        def editingFinished():
+            print(f"frame: {self.currentFrameEdit.text()}")
+            frame = int(self.currentFrameEdit.text())
+            self.frameSlider.pointerPos = frame
+            self.frameSlider.positionChanged.emit(frame)
+            self.frameSlider.checkSelection(frame)
+            self.frameSlider.update()
+
+        self.currentFrameEdit.editingFinished.connect(editingFinished)
+
+        self.currentFrameLayout.addWidget(self.currentFrameLabel)
+        self.currentFrameLayout.addWidget(self.currentFrameEdit)
+        self.currentFrameLayout.addStretch()
+
+        self.timeLineLayout.addLayout(self.currentFrameLayout)
         self.timeLineLayout.addWidget(self.frameSlider)
-        #self.timeLineLayout.addWidget(self.currentFrameLabel)
 
         self.mainContainerLayout.addLayout(self.mainLayout)
         self.mainContainerLayout.addLayout(self.timeLineLayout)
@@ -390,7 +412,7 @@ class App(QWidget):
 
             @pyqtSlot()
             def clickedStart():
-                model.setKeyFrame(self.frameSlider.value())
+                model.setKeyFrame(self.frameSlider.pointerPos)
 
             @pyqtSlot()
             def clickedHide():
@@ -721,7 +743,9 @@ class Model():
 
         self.currentKeyframe = 0
 
-        self.keyframes = []
+        self.keyframes = {}
+        for i in range(0, 360):
+            self.keyframes[i] = None
 
     @property
     def color(self):
@@ -739,24 +763,13 @@ class Model():
         self.scene.add_node(self.node)
 
     def setKeyFrame(self, currentFrame):
-        self.keyframes.append((currentFrame, self.translation))
+        pass
 
     def getStart(self):
-        frame = self.app.currentFrame
-
-        if self.currentKeyframe + 1 >= len(self.keyframes):
-            return self.keyframes[self.currentKeyframe]
-
-        if frame >= self.keyframes[self.currentKeyframe + 1][0]:
-            if self.currentKeyframe < len(self.keyframes) - 1:
-                self.currentKeyframe += 1
-
-        return self.keyframes[self.currentKeyframe]
+        pass
 
     def getEnd(self):
-        if self.currentKeyframe + 1 >= len(self.keyframes):
-            return self.keyframes[self.currentKeyframe]
-        return self.keyframes[self.currentKeyframe + 1]
+        pass
 
 
 if __name__ == '__main__':
